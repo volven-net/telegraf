@@ -45,6 +45,7 @@ type KafkaConsumer struct {
 	Topics                 []string        `toml:"topics"`
 	TopicRegexps           []string        `toml:"topic_regexps"`
 	TopicTag               string          `toml:"topic_tag"`
+	KeyTag                 string          `toml:"key_tag"`
 	MsgHeadersAsTags       []string        `toml:"msg_headers_as_tags"`
 	MsgHeaderAsMetricName  string          `toml:"msg_header_as_metric_name"`
 	ConsumerFetchDefault   config.Size     `toml:"consumer_fetch_default"`
@@ -322,6 +323,7 @@ func (k *KafkaConsumer) Start(acc telegraf.Accumulator) error {
 			handler := NewConsumerGroupHandler(acc, k.MaxUndeliveredMessages, k.parser, k.Log)
 			handler.MaxMessageLen = k.MaxMessageLen
 			handler.TopicTag = k.TopicTag
+			handler.KeyTag = k.KeyTag
 			handler.MsgHeaderToMetricName = k.MsgHeaderAsMetricName
 			//if message headers list specified, put it as map to handler
 			msgHeadersMap := make(map[string]bool, len(k.MsgHeadersAsTags))
@@ -396,6 +398,7 @@ func NewConsumerGroupHandler(acc telegraf.Accumulator, maxUndelivered int, parse
 type ConsumerGroupHandler struct {
 	MaxMessageLen         int
 	TopicTag              string
+	KeyTag                string
 	MsgHeadersToTags      map[string]bool
 	MsgHeaderToMetricName string
 
@@ -513,6 +516,11 @@ func (h *ConsumerGroupHandler) Handle(session sarama.ConsumerGroupSession, msg *
 	if len(h.TopicTag) > 0 {
 		for _, metric := range metrics {
 			metric.AddTag(h.TopicTag, msg.Topic)
+		}
+	}
+	if len(h.KeyTag) > 0 {
+		for _, metric := range metrics {
+			metric.AddTag(h.KeyTag, string(msg.Key))
 		}
 	}
 
